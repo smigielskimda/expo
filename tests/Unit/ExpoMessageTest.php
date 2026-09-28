@@ -118,10 +118,33 @@ final class ExpoMessageTest extends TestCase
         ['data' => $dataC] = $msgC->toArray();
         ['data' => $dataD] = $msgD->toArray();
 
-        $this->assertEquals($data = json_encode($value), $dataA);
+        $this->assertEquals($data = (object) $value, $dataA);
         $this->assertEquals($data, $dataB);
         $this->assertEquals($data, $dataC);
         $this->assertEquals($data, $dataD);
+        $this->assertSame('{"laravel":"framework"}', json_encode($dataA));
+    }
+
+    #[Test]
+    public function it_encodes_list_shaped_data_as_a_json_object(): void
+    {
+        $message = ExpoMessage::create('t', 'b')->data(['a', 'b']);
+
+        $this->assertStringContainsString('"data":{"0":"a","1":"b"}', json_encode($message));
+    }
+
+    #[Test]
+    public function it_rejects_data_that_is_not_an_object(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        ExpoMessage::create()->data(new class implements JsonSerializable
+        {
+            public function jsonSerialize(): string
+            {
+                return 'scalar';
+            }
+        });
     }
 
     #[Test]

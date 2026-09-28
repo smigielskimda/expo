@@ -32,7 +32,8 @@ final class ExpoMessage implements Arrayable, JsonSerializable
      * It may be up to about 4KiB; the total notification payload sent to Apple and Google must be at most 4KiB
      * or else you will get a "Message Too Big" error.
      */
-    private ?string $data = null;
+    /** @var array<array-key, mixed>|null */
+    private ?array $data = null;
 
     /**
      * The title to display in the notification.
@@ -238,13 +239,18 @@ final class ExpoMessage implements Arrayable, JsonSerializable
     {
         if ($value instanceof Arrayable) {
             $value = $value->toArray();
+        } elseif ($value instanceof Jsonable) {
+            $value = json_decode($value->toJson(), true, 512, JSON_THROW_ON_ERROR);
+        } elseif ($value instanceof JsonSerializable) {
+            $value = json_decode(json_encode($value, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
         }
 
-        if ($value instanceof Jsonable) {
-            $value = $value->toJson(JSON_THROW_ON_ERROR);
-        } else {
-            $value = json_encode($value, JSON_THROW_ON_ERROR);
+        if (! is_array($value)) {
+            throw new InvalidArgumentException('The data must encode to a JSON object.');
         }
+
+        // Fail early on anything that can't be encoded, as before.
+        json_encode($value, JSON_THROW_ON_ERROR);
 
         $this->data = $value;
 
@@ -472,7 +478,15 @@ final class ExpoMessage implements Arrayable, JsonSerializable
      */
     public function toArray(): array
     {
+        $message = array_filter(get_object_vars($this), filled(...));
+
+        // Expo rejects anything but a JSON object here ("data" must be a object),
+        // and a PHP list or string would not encode as one.
+        if (isset($message['data'])) {
+            $message['data'] = (object) $message['data'];
+        }
+
         /** @var array<string, mixed> */
-        return array_filter(get_object_vars($this), filled(...));
+        return $message;
     }
 }
