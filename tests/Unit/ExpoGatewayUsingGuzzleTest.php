@@ -39,6 +39,38 @@ final class ExpoGatewayUsingGuzzleTest extends TestCase
     }
 
     #[Test]
+    public function send_reads_the_single_ticket_object_expo_returns_for_one_recipient(): void
+    {
+        $gateway = $this->gatewayReturning(new Response(200, [], json_encode([
+            'data' => ['status' => 'ok', 'id' => 'ticket-1'],
+        ])));
+
+        $response = $gateway->sendPushNotifications(ExpoEnvelope::make([
+            ExpoPushToken::make('ExponentPushToken[FtT1dBIc5Wp92HEGuJUhL4]'),
+        ], ExpoMessage::create('Hi', 'There')));
+
+        $this->assertTrue($response->isOk());
+        $this->assertSame(['ticket-1'], $response->tickets());
+    }
+
+    #[Test]
+    public function send_reports_the_error_of_a_single_ticket_object(): void
+    {
+        $gateway = $this->gatewayReturning(new Response(200, [], json_encode([
+            'data' => ['status' => 'error', 'message' => 'gone', 'details' => ['error' => 'DeviceNotRegistered']],
+        ])));
+
+        $response = $gateway->sendPushNotifications(ExpoEnvelope::make([
+            $token = ExpoPushToken::make('ExponentPushToken[FtT1dBIc5Wp92HEGuJUhL4]'),
+        ], ExpoMessage::create('Hi', 'There')));
+
+        $this->assertTrue($response->isFailure());
+        $this->assertCount(1, $response->errors());
+        $this->assertTrue($response->errors()[0]->type->isDeviceNotRegistered());
+        $this->assertTrue($response->errors()[0]->token->equals($token));
+    }
+
+    #[Test]
     public function get_receipts_posts_to_expo_and_returns_data_keyed_by_ticket(): void
     {
         $mock = new MockHandler([

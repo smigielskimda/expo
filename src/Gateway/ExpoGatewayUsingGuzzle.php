@@ -219,8 +219,19 @@ final readonly class ExpoGatewayUsingGuzzle implements ExpoGateway
         /** @var array<string, mixed> $body */
         $body = json_decode((string) $response->getBody(), true);
 
+        $data = Arr::get($body, 'data', []);
+
+        if (! is_array($data)) {
+            return [];
+        }
+
+        // A single-recipient send is answered with one ticket object, not a list.
+        if (array_key_exists('status', $data)) {
+            $data = [$data];
+        }
+
         /** @var array<int, array<string, mixed>> */
-        return Arr::get($body, 'data', []);
+        return $data;
     }
 
     /**
